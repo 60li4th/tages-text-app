@@ -231,8 +231,8 @@
       const todayISO = toISODateUTC(today);
       const tomorrowISO = toISODateUTC(tomorrow);
 
-      document.getElementById("todayDate").textContent = `Heute: ${formatGermanWeekdayDate(today)}`;
-      document.getElementById("tomorrowDate").textContent = `Morgen: ${formatGermanWeekdayDate(tomorrow)}`;
+      document.getElementById("todayDate").textContent = `${formatGermanWeekdayDate(today)}`;
+      document.getElementById("tomorrowDate").textContent = `${formatGermanWeekdayDate(tomorrow)}`;
 
       const todayText = findTextFor(rows, todayISO);
       const tomorrowText = findTextFor(rows, tomorrowISO);
