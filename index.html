@@ -3,64 +3,253 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Tages-Text</title>
+  <title>Frühstück</title>
+
   <style>
-    body { font-family: system-ui, sans-serif; margin: 40px; line-height: 1.4; }
-    .box { padding: 16px; border: 1px solid #ddd; border-radius: 12px; max-width: 720px; }
-    .meta { color: #666; font-size: 14px; margin-bottom: 10px; }
-    .text { white-space: pre-wrap; font-size: 18px; }
+    :root{
+      --pad: clamp(14px, 2vw, 24px);
+      --radius: 16px;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #111;
+      background: #f6f7f9;
+    }
+
+    /* Gesamtlayout: 20% Header + 80% Content */
+    .page {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header.hero {
+      flex: 0 0 20vh;         /* ca. 20% der Viewporthöhe */
+      min-height: 140px;      /* sinnvolle Untergrenze */
+      max-height: 240px;      /* sinnvolle Obergrenze */
+      position: relative;
+      background-image: url("./header.png");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      display: flex;
+      align-items: center;
+      padding: var(--pad);
+      color: #fff;
+    }
+
+    /* leichte Abdunklung für Lesbarkeit */
+    header.hero::before{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.45),
+        rgba(0,0,0,0.25)
+      );
+    }
+
+    .hero-inner{
+      position: relative;
+      z-index: 1;
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    .headline{
+      margin: 0;
+      font-size: clamp(28px, 4.2vw, 44px);
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.05;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    }
+
+    .subheadline{
+      margin: 8px 0 0 0;
+      font-size: clamp(14px, 2.2vw, 18px);
+      font-weight: 600;
+      opacity: 0.95;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    }
+
+    main.content {
+      flex: 1 1 auto;         /* restliche Höhe (≈80%) */
+      padding: var(--pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--pad);
+      box-sizing: border-box;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #e6e7ea;
+      border-radius: var(--radius);
+      padding: var(--pad);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .today-panel { flex: 1 1 50%; }
+    .tomorrow-panel { flex: 1 1 50%; }
+
+    .label{
+      margin: 0 0 10px 0;
+      font-weight: 800;
+      color: #1a1a1a;
+    }
+
+    .date-line{
+      margin: 0 0 14px 0;
+      color: #555;
+      font-weight: 600;
+    }
+
+    .text{
+      margin: 0;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+
+    /* Größen: Heute groß, Morgen deutlich kleiner */
+    .today-panel .label { font-size: clamp(18px, 2.2vw, 22px); }
+    .today-panel .date-line { font-size: clamp(14px, 1.9vw, 18px); }
+    .today-panel .text { font-size: clamp(18px, 2.4vw, 28px); }
+
+    .tomorrow-panel .label { font-size: clamp(14px, 1.7vw, 16px); opacity: 0.9; }
+    .tomorrow-panel .date-line { font-size: clamp(12px, 1.5vw, 14px); opacity: 0.85; }
+    .tomorrow-panel .text { font-size: clamp(13px, 1.7vw, 16px); color: #333; opacity: 0.95; }
+
+    /* Mobile: etwas kompakter */
+    @media (max-width: 420px){
+      header.hero { min-height: 120px; }
+      main.content { gap: 12px; }
+    }
   </style>
 </head>
+
 <body>
-  <div class="box">
-    <div class="meta" id="meta">Lade…</div>
-    <div class="text" id="text"></div>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-inner">
+        <h1 class="headline">Frühstück</h1>
+        <p class="subheadline">AWO Kindergarten Deuringen</p>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="panel today-panel">
+        <p class="label">Heute</p>
+        <p class="date-line" id="todayDate">Lade…</p>
+        <p class="text" id="todayText"></p>
+      </section>
+
+      <section class="panel tomorrow-panel">
+        <p class="label">Morgen</p>
+        <p class="date-line" id="tomorrowDate">Lade…</p>
+        <p class="text" id="tomorrowText"></p>
+      </section>
+    </main>
   </div>
 
-  <!-- CSV Parser (klein + robust) -->
+  <!-- CSV Parser -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    // Datum "heute" in Europe/Berlin als YYYY-MM-DD
-    function todayBerlinISO() {
+    const TZ = "Europe/Berlin";
+
+    function dateAtMidnightBerlin(offsetDays = 0) {
+      // "Heute" aus Sicht Berlin bestimmen, dann offsetDays addieren.
+      const now = new Date();
       const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Europe/Berlin",
+        timeZone: TZ,
         year: "numeric",
         month: "2-digit",
         day: "2-digit"
-      }).formatToParts(new Date());
+      }).formatToParts(now);
 
-      const y = parts.find(p => p.type === "year").value;
-      const m = parts.find(p => p.type === "month").value;
-      const d = parts.find(p => p.type === "day").value;
-      return `${y}-${m}-${d}`;
+      const y = Number(parts.find(p => p.type === "year").value);
+      const m = Number(parts.find(p => p.type === "month").value);
+      const d = Number(parts.find(p => p.type === "day").value);
+
+      // UTC-Midnight nutzen, damit +1 Tag sicher funktioniert
+      const base = new Date(Date.UTC(y, m - 1, d));
+      base.setUTCDate(base.getUTCDate() + offsetDays);
+      return base;
     }
 
-    async function loadAndShow() {
-      const heute = todayBerlinISO();
-      document.getElementById("meta").textContent = `Heute: ${heute}`;
+    function toISODateUTC(d) {
+      // YYYY-MM-DD in UTC (passt zu deinem daten.csv Format)
+      return d.toISOString().slice(0, 10);
+    }
 
+    function formatGermanWeekdayDate(d) {
+      // Ausgabe: Wochentag, TT.MM.JJJJ
+      const weekday = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "long" }).format(d);
+      const date = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric" }).format(d);
+      return `${weekday}, ${date}`;
+    }
+
+    async function loadCSV() {
       const res = await fetch("./daten.csv", { cache: "no-store" });
       if (!res.ok) throw new Error("daten.csv konnte nicht geladen werden.");
-
       const csvText = await res.text();
+
       const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+      if (parsed.errors?.length) {
+        console.warn("CSV Parse Errors:", parsed.errors);
+      }
 
-      const rows = parsed.data.map(r => ({
-        datum: String(r.datum || "").trim(),
-        text: String(r.text || "").trim()
-      }));
-
-      const hit = rows.find(r => r.datum === heute);
-
-      document.getElementById("text").textContent =
-        hit ? hit.text : "Kein Text für heute gefunden.";
+      // Erwartete Spalten: datum,text
+      return parsed.data
+        .map(r => ({
+          datum: String(r.datum || "").trim(),
+          text: String(r.text || "").trim()
+        }))
+        .filter(r => r.datum);
     }
 
-    loadAndShow().catch(err => {
-      document.getElementById("meta").textContent = "Fehler";
-      document.getElementById("text").textContent = err.message;
+    function findTextFor(rows, isoDate) {
+      const hit = rows.find(r => r.datum === isoDate);
+      return hit ? hit.text : "";
+    }
+
+    async function run() {
+      const rows = await loadCSV();
+
+      const today = dateAtMidnightBerlin(0);
+      const tomorrow = dateAtMidnightBerlin(1);
+
+      const todayISO = toISODateUTC(today);
+      const tomorrowISO = toISODateUTC(tomorrow);
+
+      document.getElementById("todayDate").textContent = `Heute: ${formatGermanWeekdayDate(today)}`;
+      document.getElementById("tomorrowDate").textContent = `Morgen: ${formatGermanWeekdayDate(tomorrow)}`;
+
+      const todayText = findTextFor(rows, todayISO);
+      const tomorrowText = findTextFor(rows, tomorrowISO);
+
+      document.getElementById("todayText").textContent =
+        todayText ? todayText : "Kein Text für heute gefunden.";
+
+      document.getElementById("tomorrowText").textContent =
+        tomorrowText ? tomorrowText : "Kein Text für morgen gefunden.";
+    }
+
+    run().catch(err => {
       console.error(err);
+      document.getElementById("todayDate").textContent = "Fehler";
+      document.getElementById("todayText").textContent = err.message;
+      document.getElementById("tomorrowDate").textContent = "";
+      document.getElementById("tomorrowText").textContent = "";
     });
   </script>
 </body>
